@@ -1,1 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interactive Quote Memorizer (24+ Quotes)</title>
+<style>
 
+  * { box-sizing: border-box; }
+    :root {
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --text: #0f172a;
+    --muted: #64748b;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --success: #16a34a;
+    --error: #dc2626;
+    --border: #e2e8f0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #60a5fa;
+      --success: #22c55e;
+      --error: #ef4444;
+      --border: #334155;
+    }
+  }
+  h1 { margin: 0 0 6px; font-size: 1.5rem; }
+  .subtitle { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; }
+  textarea, input[type="text"] {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 1rem;
+    resize: vertical;
+  }
+  textarea:focus, input:focus { outline: 2px solid var(--primary); border-color: transparent; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
+  .between { justify-content: space-between; }
+  button {
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: 0.15s;
+  }
+  button:hover { border-color: var(--primary); }
+  button.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+  button.primary:hover { background: var(--primary-hover); }
+  button.success { background: var(--success); color: #fff; border-color: var(--success); }
+  .badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: var(--bg);
+    border: 1px solid var(--border);
+  }
+  .stage-bar { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+  .stage-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .prompt-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin: 14px 0;
+    font-size: 1.1rem;
+    min-height: 64px;
+    white-space: pre-wrap;
+  }
+  .feedback { margin-top: 12px; font-weight: 600; min-height: 24px; }
+  .ok { color: var(--success); }
+  .err { color: var(--error); }
+  .diff { margin-top: 8px; font-size: 0.95rem; line-height: 1.7; }
+  .word-ok { color: var(--success); }
+  .word-bad { color: var(--error); text-decoration: underline; font-weight: 600; }
+  .hidden { display: none; }
+  .progress-wrap { width: 100%; height: 8px; background: var(--bg); border-radius: 999px; overflow: hidden; margin: 12px 0; }
+  .progress-fill { height: 100%; background: var(--success); width: 0%; transition: width 0.25s; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="row between" style="margin-top:0;">
+    <div>
+      <h1>Macbth Quotes</h1>
+      <p class="subtitle">Paste 24+ quotes (one per line) and practice active typing recall.</p>
+    </div>
+    <span class="badge" id="quoteCountBadge">0 quotes loaded</span>
+  </div>
+
+  <!-- SETUP VIEW -->
+  <div id="setupView">
+    <textarea id="quotesInput" rows="12" placeholder="Paste your quotes here, one quote per line..."></textarea>
+    <div class="row between">
+      <div class="row" style="margin-top:0;">
+        <button type="button" id="loadSampleBtn">Load 24 Sample Quotes</button>
+        <button type="button" id="clearBtn">Clear</button>
+      </div>
+      <div class="row" style="margin-top:0;">
+        <label style="font-size:0.9rem; cursor:pointer;">
+          <input type="checkbox" id="shuffleCheck"> Shuffle order
+        </label>
+        <button type="button" class="primary" id="startBtn">Start Practicing</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRACTICE VIEW -->
+  <div id="practiceView" class="hidden">
+    <div class="row between">
+      <span class="badge" id="progressLabel">Quote 1 of 24</span>
+      <span class="badge" id="masteredLabel">Mastered: 0 / 24</span>
+      <button type="button" id="editQuotesBtn">Edit Quotes</button>
+    </div>
+
+    <div class="progress-wrap"><div class="progress-fill" id="progressFill"></div></div>
+
+    <div class="stage-bar">
+      <button type="button" class="stage-btn active" data-stage="0">1. Full Text</button>
+      <button type="button" class="stage-btn" data-stage="1">2. First Letters</button>
+      <button type="button" class="stage-btn" data-stage="2">3. First Words</button>
+      <button type="button" class="stage-btn" data-stage="3">4. Blind Recall</button>
+    </div>
+
+    <div class="prompt-box" id="hintDisplay" style="color: white;"></div>
+
+    <textarea id="answerInput" rows="3" placeholder="Type the quote from memory here... (Press Enter to check)"></textarea>
+
+    <div class="row between">
+      <div class="row" style="margin-top:0;">
+        <button type="button" class="primary" id="checkBtn">Check Answer</button>
+        <button type="button" id="peekBtn">Peek</button>
+        <button type="button" id="markMasteredBtn">Mark Mastered</button>
+      </div>
+      <div class="row" style="margin-top:0;">
+        <button type="button" id="prevBtn">Previous</button>
+        <button type="button" id="nextBtn">Next Quote</button>
+      </div>
+    </div>
+
+    <div class="feedback" id="feedbackMsg"></div>
+    <div class="diff" id="diffOutput"></div>
+  </div>
+</div>
+
+<script>
+  const SAMPLE_QUOTES = ['The moment I chose, I can be rid of Mr Hyde.\n', 'If I am the chief of sinners, I am the chief of sufferers also.\n', 'That man is not truly one, but two.\n', 'I was slowly losing hold of my original and better self, and becoming slowly incorporated with my second and worse.\n', 'Such unscientific balderdash.\n', 'You who have so long been bound to the most narrow and material views [...] behold!\n', 'The hard law of life, which lies at the root of religion.\n', 'The drug had no discriminating action; it was neither diabolical nor divine; it but shook the doors of the prisonhouse of my disposition.\n', 'The more it looks like queer street, the less I ask.\n', 'The ghost of some old sin, the cancer of some concealed disgrace.\n', 'This is a private matter, I beg of you to let it sleep.\n', 'I concealed my pleasures [...] stood already committed to a profound duplicity of life.\n', "It wasn't like a man; it was like some damned Juggernaut.\n", "If I ever read Satan's signature upon a face, it is on that of your new friend.\n", 'With ape-like fury, he was trampling his victim under foot.\n', 'All human beings, as we meet them, are commingled out of good and evil; and Edward Hyde alone, in the ranks of mankind, was pure evil.\n', "I incline to Cain's heresy [...] I let my brother go to the devil in his own way.\n", "I continue to take an interest in him for old sake's sake.\n", 'I would trust you before any man alive, ay, before my self, if I could make the choice.\n', 'O, sir, do you think I do not know my master after twenty years?\n', 'A blind forehead of discoloured wall.\n', 'A great chocolate-coloured pall lowered over heaven, but the wind was continually charging and routing these embattled vapours.\n', 'The fog still slept on the wing above the drowned city, where the lamps glimmered like carbuncles.\n', 'It was a wild, cold, seasonable night of March, with a pale moon, lying on her back as though the wind tilted her.\n'];
+  
+  let quotes = [];
+  let order = [];
+  let currentIdx = 0;
+  let stage = 0;
+  let mastered = new Set();
+
+  const quotesInput = document.getElementById("quotesInput");
+  const quoteCountBadge = document.getElementById("quoteCountBadge");
+  const setupView = document.getElementById("setupView");
+  const practiceView = document.getElementById("practiceView");
+  const hintDisplay = document.getElementById("hintDisplay");
+  const answerInput = document.getElementById("answerInput");
+  const feedbackMsg = document.getElementById("feedbackMsg");
+  const diffOutput = document.getElementById("diffOutput");
+
+  const saved = localStorage.getItem("memorizer_quotes_v1");
+  if (saved) quotesInput.value = saved;
+
+  function parseQuotes() {
+    return quotesInput.value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  }
+
+  function updateCount() {
+    const list = parseQuotes();
+    quoteCountBadge.textContent = `${list.length} quote${list.length === 1 ? "" : "s"} loaded`;
+    localStorage.setItem("memorizer_quotes_v1", quotesInput.value);
+  }
+
+  quotesInput.addEventListener("input", updateCount);
+  updateCount();
+
+  document.getElementById("loadSampleBtn").onclick = () => {
+    quotesInput.value = SAMPLE_QUOTES.join("\n");
+    updateCount();
+  };
+
+  document.getElementById("clearBtn").onclick = () => {
+    quotesInput.value = "";
+    updateCount();
+  };
+
+  function getHintText(text, stg) {
+    if (stg === 0) return text;
+    if (stg === 1) {
+      return text.split(/(\s+)/).map(tok => {
+        if (/^\s+$/.test(tok)) return tok;
+        const m = tok.match(/^([^a-zA-Z0-9]*)([a-zA-Z0-9])(.*)$/);
+        if (!m) return tok;
+        return m[1] + m[2] + m[3].replace(/[a-zA-Z0-9]/g, "_");
+      }).join("");
+    }
+    if (stg === 2) {
+      const words = text.split(/\s+/);
+      return words.map((w, i) => i === 0 ? w : w.replace(/[a-zA-Z0-9]/g, "_")).join(" ");
+    }
+    return "[Blind Recall — type the entire quote from memory]";
+  }
+
+  function renderQuote() {
+    const realIndex = order[currentIdx];
+    const q = quotes[realIndex];
+    document.getElementById("progressLabel").textContent = `Quote ${currentIdx + 1} of ${quotes.length}`;
+    document.getElementById("masteredLabel").textContent = `Mastered: ${mastered.size} / ${quotes.length}`;
+    document.getElementById("progressFill").style.width = `${(mastered.size / quotes.length) * 100}%`;
+    hintDisplay.textContent = getHintText(q, stage);
+    answerInput.value = "";
+    feedbackMsg.textContent = "";
+    feedbackMsg.className = "feedback";
+    diffOutput.innerHTML = "";
+    const mBtn = document.getElementById("markMasteredBtn");
+    mBtn.textContent = mastered.has(realIndex) ? "Mastered ✓" : "Mark Mastered";
+    mBtn.className = mastered.has(realIndex) ? "success" : "";
+    answerInput.focus();
+  }
+
+  document.getElementById("startBtn").onclick = () => {
+    quotes = parseQuotes();
+    if (!quotes.length) {
+      alert("Please enter at least one quote first.");
+      return;
+    }
+    order = quotes.map((_, i) => i);
+    if (document.getElementById("shuffleCheck").checked) {
+      for (let i = order.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [order[i], order[j]] = [order[j], order[i]];
+      }
+    }
+    currentIdx = 0;
+    mastered.clear();
+    setupView.classList.add("hidden");
+    practiceView.classList.remove("hidden");
+    renderQuote();
+  };
+
+  document.getElementById("editQuotesBtn").onclick = () => {
+    practiceView.classList.add("hidden");
+    setupView.classList.remove("hidden");
+  };
+
+  document.querySelectorAll(".stage-btn").forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll(".stage-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      stage = Number(btn.dataset.stage);
+      renderQuote();
+    };
+  });
+
+  function normalize(str) {
+    return str.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
+  }
+
+  function checkAnswer() {
+    const realIndex = order[currentIdx];
+    const target = quotes[realIndex];
+    const attempt = answerInput.value.trim();
+    if (!attempt) return;
+
+    if (normalize(attempt) === normalize(target)) {
+      feedbackMsg.textContent = "Exact match! Well done.";
+      feedbackMsg.className = "feedback ok";
+      mastered.add(realIndex);
+      document.getElementById("masteredLabel").textContent = `Mastered: ${mastered.size} / ${quotes.length}`;
+      document.getElementById("progressFill").style.width = `${(mastered.size / quotes.length) * 100}%`;
+      const mBtn = document.getElementById("markMasteredBtn");
+      mBtn.textContent = "Mastered ✓";
+      mBtn.className = "success";
+      diffOutput.innerHTML = "";
+    } else {
+      feedbackMsg.textContent = "Not quite — compare your words below:";
+      feedbackMsg.className = "feedback err";
+      const tWords = target.split(/\s+/);
+      const aWords = attempt.split(/\s+/);
+      diffOutput.innerHTML = tWords.map((tw, idx) => {
+        const aw = aWords[idx] || "";
+        const match = normalize(tw) === normalize(aw);
+        return `<span class="${match ? "word-ok" : "word-bad"}">${tw}</span>`;
+      }).join(" ");
+    }
+  }
+
+  document.getElementById("checkBtn").onclick = checkAnswer;
+  answerInput.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      checkAnswer();
+    }
+  });
+
+  document.getElementById("peekBtn").onclick = () => {
+    hintDisplay.textContent = quotes[order[currentIdx]];
+  };
+
+  document.getElementById("markMasteredBtn").onclick = () => {
+    const realIndex = order[currentIdx];
+    if (mastered.has(realIndex)) mastered.delete(realIndex);
+    else mastered.add(realIndex);
+    renderQuote();
+  };
+
+  document.getElementById("nextBtn").onclick = () => {
+    currentIdx = (currentIdx + 1) % quotes.length;
+    renderQuote();
+  };
+
+  document.getElementById("prevBtn").onclick = () => {
+    currentIdx = (currentIdx - 1 + quotes.length) % quotes.length;
+    renderQuote();
+  };
+</script>
+</body>
+</html>
